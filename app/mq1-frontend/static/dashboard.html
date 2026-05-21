@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — VetClínica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<script src="/static/js/utils.js"></script>
+<script src="/static/js/layout.js"></script>
+<script>
+  buildLayout('Dashboard');
+
+  const content = document.getElementById('page-content');
+
+  content.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h1>Dashboard</h1>
+        <p>Resumo do sistema da clínica veterinária</p>
+      </div>
+      <a href="/animais.html" class="btn btn-primary">
+        <span>➕</span> Novo Animal
+      </a>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon verde">🐾</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-animais">—</div>
+          <div class="stat-label">Animais Cadastrados</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon azul">📋</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-consultas">—</div>
+          <div class="stat-label">Total de Consultas</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon laranja">📅</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-agendadas">—</div>
+          <div class="stat-label">Consultas Agendadas</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon roxo">✅</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-realizadas">—</div>
+          <div class="stat-label">Consultas Realizadas</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Próximas Consultas -->
+    <div class="card">
+      <div class="card-header">
+        <h2>📅 Próximas Consultas</h2>
+        <a href="/consultas.html" class="btn btn-ghost btn-sm">Ver todas →</a>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Animal</th>
+              <th>Data</th>
+              <th>Veterinário</th>
+              <th>Motivo</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="proximas-tbody">
+            <tr><td colspan="5"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  async function loadDashboard() {
+    try {
+      const stats = await Api.get('/dashboard');
+      document.getElementById('stat-animais').textContent   = stats.total_animais;
+      document.getElementById('stat-consultas').textContent = stats.total_consultas;
+      document.getElementById('stat-agendadas').textContent = stats.consultas_agendadas;
+      document.getElementById('stat-realizadas').textContent = stats.consultas_realizadas;
+    } catch (err) {
+      Toast.error('Erro ao carregar estatísticas');
+    }
+
+    try {
+      const consultas = await Api.get('/consultas?status_filter=agendada');
+      const tbody = document.getElementById('proximas-tbody');
+
+      if (!consultas || consultas.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5">
+              <div class="empty-state">
+                <div class="empty-icon">📅</div>
+                <h3>Nenhuma consulta agendada</h3>
+                <p>As próximas consultas aparecerão aqui</p>
+              </div>
+            </td>
+          </tr>`;
+        return;
+      }
+
+      tbody.innerHTML = consultas.slice(0, 8).map(c => `
+        <tr>
+          <td>
+            <div class="animal-cell">
+              ${animalAvatar(c.animal_foto, c.animal_nome)}
+              <div>
+                <div class="animal-name">${c.animal_nome}</div>
+                <div class="animal-breed">${c.animal_especie}</div>
+              </div>
+            </div>
+          </td>
+          <td>${Format.datetime(c.data_consulta)}</td>
+          <td>${c.veterinario}</td>
+          <td>${c.motivo}</td>
+          <td>${statusBadge(c.status)}</td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      Toast.error('Erro ao carregar consultas');
+    }
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>

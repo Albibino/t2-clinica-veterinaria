@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consultas — VetClínica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<script src="/static/js/utils.js"></script>
+<script src="/static/js/layout.js"></script>
+<script>
+  buildLayout('Consultas');
+  const content = document.getElementById('page-content');
+
+  content.innerHTML = `
+    <!-- Modal: Detalhes da Consulta -->
+    <div class="modal-overlay" id="modal-consulta-detalhe">
+      <div class="modal" style="max-width:640px">
+        <div class="modal-header">
+          <h2>📋 Detalhes da Consulta</h2>
+          <button class="modal-close" onclick="Modal.close('modal-consulta-detalhe')">✕</button>
+        </div>
+        <div class="modal-body" id="modal-detalhe-body"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="Modal.close('modal-consulta-detalhe')">Fechar</button>
+          <button class="btn btn-primary" id="btn-editar-consulta">✏️ Editar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Editar Consulta -->
+    <div class="modal-overlay" id="modal-editar-consulta">
+      <div class="modal" style="max-width:640px">
+        <div class="modal-header">
+          <h2>✏️ Editar Consulta</h2>
+          <button class="modal-close" onclick="Modal.close('modal-editar-consulta')">✕</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-editar">
+            <input type="hidden" id="edit-id">
+            <div class="form-grid form-grid-2">
+              <div class="form-group">
+                <label class="form-label">Data e Hora <span class="req">*</span></label>
+                <input type="datetime-local" id="edit-data" class="form-control" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Veterinário <span class="req">*</span></label>
+                <input type="text" id="edit-vet" class="form-control" placeholder="Nome do veterinário" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Motivo <span class="req">*</span></label>
+              <input type="text" id="edit-motivo" class="form-control" placeholder="Motivo da consulta" required>
+            </div>
+            <div class="form-grid form-grid-2">
+              <div class="form-group">
+                <label class="form-label">Status</label>
+                <select id="edit-status" class="form-control form-select">
+                  <option value="agendada">📅 Agendada</option>
+                  <option value="realizada">✅ Realizada</option>
+                  <option value="cancelada">❌ Cancelada</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Peso na Consulta (kg)</label>
+                <input type="number" id="edit-peso" class="form-control" step="0.1" min="0">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Diagnóstico</label>
+              <textarea id="edit-diag" class="form-control" placeholder="Diagnóstico do veterinário..."></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tratamento</label>
+              <textarea id="edit-trat" class="form-control" placeholder="Tratamento prescrito..."></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Medicamentos</label>
+              <textarea id="edit-meds" class="form-control" placeholder="Medicamentos receitados..."></textarea>
+            </div>
+            <div class="form-grid form-grid-2">
+              <div class="form-group">
+                <label class="form-label">Data de Retorno</label>
+                <input type="date" id="edit-retorno" class="form-control">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Observações</label>
+                <input type="text" id="edit-obs" class="form-control" placeholder="Observações adicionais...">
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="Modal.close('modal-editar-consulta')">Cancelar</button>
+          <button class="btn btn-primary" onclick="salvarEdicao()">💾 Salvar Alterações</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Confirmar Exclusão -->
+    <div class="modal-overlay" id="modal-del-consulta">
+      <div class="modal" style="max-width:400px">
+        <div class="modal-header">
+          <h2>⚠️ Excluir Consulta</h2>
+          <button class="modal-close" onclick="Modal.close('modal-del-consulta')">✕</button>
+        </div>
+        <div class="modal-body">
+          <p style="color:var(--cinza-700)">Tem certeza que deseja excluir esta consulta? Esta ação não pode ser desfeita.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="Modal.close('modal-del-consulta')">Cancelar</button>
+          <button class="btn btn-danger" onclick="confirmarDelConsulta()">🗑️ Excluir</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTEÚDO -->
+    <div class="page-header">
+      <div>
+        <h1>📋 Consultas</h1>
+        <p>Histórico e agenda de consultas</p>
+      </div>
+      <a href="/nova-consulta.html" class="btn btn-primary">
+        <span>➕</span> Nova Consulta
+      </a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-body" style="padding:16px 24px">
+        <div class="search-bar">
+          <select id="status-filter" class="form-control form-select" style="width:200px">
+            <option value="">Todos os status</option>
+            <option value="agendada">📅 Agendadas</option>
+            <option value="realizada">✅ Realizadas</option>
+            <option value="cancelada">❌ Canceladas</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="limparFiltros()">✕ Limpar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabela -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Lista de Consultas</h2>
+        <span id="total-count" style="color:var(--cinza-500);font-size:.85rem"></span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Animal</th>
+              <th>Data / Hora</th>
+              <th>Veterinário</th>
+              <th>Motivo</th>
+              <th>Status</th>
+              <th>Retorno</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="consultas-tbody">
+            <tr><td colspan="7"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  let deleteConsultaId = null;
+
+  async function loadConsultas(statusFilter = '') {
+    const tbody = document.getElementById('consultas-tbody');
+    tbody.innerHTML = `<tr><td colspan="7"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>`;
+    try {
+      let url = '/consultas?';
+      if (statusFilter) url += `status_filter=${statusFilter}`;
+
+      const consultas = await Api.get(url);
+      const counter = document.getElementById('total-count');
+      counter.textContent = `${consultas.length} consulta(s)`;
+
+      if (!consultas.length) {
+        tbody.innerHTML = `
+          <tr><td colspan="7">
+            <div class="empty-state">
+              <div class="empty-icon">📋</div>
+              <h3>Nenhuma consulta encontrada</h3>
+              <p>Agende a primeira consulta</p>
+              <a href="/nova-consulta.html" class="btn btn-primary">➕ Nova Consulta</a>
+            </div>
+          </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = consultas.map(c => `
+        <tr>
+          <td>
+            <div class="animal-cell">
+              ${animalAvatar(c.animal_foto, c.animal_nome)}
+              <div>
+                <div class="animal-name">${c.animal_nome}</div>
+                <div class="animal-breed">${c.animal_especie}</div>
+              </div>
+            </div>
+          </td>
+          <td>${Format.datetime(c.data_consulta)}</td>
+          <td>${c.veterinario}</td>
+          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.motivo}">${c.motivo}</td>
+          <td>${statusBadge(c.status)}</td>
+          <td>${c.retorno ? Format.date(c.retorno) : '—'}</td>
+          <td>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm btn-icon" onclick="verDetalheConsulta(${c.id})" title="Ver detalhes">👁</button>
+              <button class="btn btn-ghost btn-sm btn-icon" onclick="abrirEdicao(${c.id})" title="Editar">✏️</button>
+              <button class="btn btn-danger btn-sm btn-icon" onclick="pedirDelConsulta(${c.id})" title="Excluir">🗑️</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      Toast.error('Erro ao carregar consultas: ' + err.message);
+    }
+  }
+
+  async function verDetalheConsulta(id) {
+    try {
+      const c = await Api.get(`/consultas/${id}`);
+      const body = document.getElementById('modal-detalhe-body');
+      body.innerHTML = `
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;padding:16px;background:var(--verde-ultra);border-radius:12px">
+          ${animalAvatar(c.animal_foto, c.animal_nome)}
+          <div>
+            <div style="font-weight:700;font-size:1.1rem">${c.animal_nome}</div>
+            <div>${especieBadge(c.animal_especie)}</div>
+          </div>
+          <div style="margin-left:auto">${statusBadge(c.status)}</div>
+        </div>
+        <div class="consulta-info-grid">
+          <div class="info-field"><label>Data da Consulta</label><p>${Format.datetime(c.data_consulta)}</p></div>
+          <div class="info-field"><label>Veterinário</label><p>${c.veterinario}</p></div>
+          <div class="info-field"><label>Motivo</label><p>${c.motivo}</p></div>
+          <div class="info-field"><label>Peso</label><p>${Format.peso(c.peso_consulta)}</p></div>
+          ${c.retorno ? `<div class="info-field"><label>Retorno</label><p>${Format.date(c.retorno)}</p></div>` : ''}
+        </div>
+        ${c.diagnostico ? `<hr class="divider"><div class="info-field"><label>Diagnóstico</label><p>${c.diagnostico}</p></div>` : ''}
+        ${c.tratamento  ? `<hr class="divider"><div class="info-field"><label>Tratamento</label><p>${c.tratamento}</p></div>` : ''}
+        ${c.medicamentos? `<hr class="divider"><div class="info-field"><label>Medicamentos</label><p>${c.medicamentos}</p></div>` : ''}
+        ${c.observacoes ? `<hr class="divider"><div class="info-field"><label>Observações</label><p>${c.observacoes}</p></div>` : ''}
+      `;
+      document.getElementById('btn-editar-consulta').onclick = () => {
+        Modal.close('modal-consulta-detalhe');
+        abrirEdicao(id);
+      };
+      Modal.open('modal-consulta-detalhe');
+    } catch (err) {
+      Toast.error('Erro ao carregar consulta');
+    }
+  }
+
+  async function abrirEdicao(id) {
+    try {
+      const c = await Api.get(`/consultas/${id}`);
+      document.getElementById('edit-id').value = c.id;
+      document.getElementById('edit-data').value = Format.datetimeInput(c.data_consulta);
+      document.getElementById('edit-vet').value = c.veterinario;
+      document.getElementById('edit-motivo').value = c.motivo;
+      document.getElementById('edit-status').value = c.status;
+      document.getElementById('edit-peso').value = c.peso_consulta || '';
+      document.getElementById('edit-diag').value = c.diagnostico || '';
+      document.getElementById('edit-trat').value = c.tratamento || '';
+      document.getElementById('edit-meds').value = c.medicamentos || '';
+      document.getElementById('edit-retorno').value = c.retorno || '';
+      document.getElementById('edit-obs').value = c.observacoes || '';
+      Modal.open('modal-editar-consulta');
+    } catch (err) {
+      Toast.error('Erro ao carregar consulta para edição');
+    }
+  }
+
+  async function salvarEdicao() {
+    const id = document.getElementById('edit-id').value;
+    const data = {
+      data_consulta: document.getElementById('edit-data').value,
+      veterinario: document.getElementById('edit-vet').value,
+      motivo: document.getElementById('edit-motivo').value,
+      status: document.getElementById('edit-status').value,
+      peso_consulta: document.getElementById('edit-peso').value || null,
+      diagnostico: document.getElementById('edit-diag').value || null,
+      tratamento: document.getElementById('edit-trat').value || null,
+      medicamentos: document.getElementById('edit-meds').value || null,
+      retorno: document.getElementById('edit-retorno').value || null,
+      observacoes: document.getElementById('edit-obs').value || null,
+    };
+    try {
+      await Api.put(`/consultas/${id}`, data);
+      Toast.success('Consulta atualizada com sucesso!');
+      Modal.close('modal-editar-consulta');
+      loadConsultas(document.getElementById('status-filter').value);
+    } catch (err) {
+      Toast.error('Erro ao atualizar: ' + err.message);
+    }
+  }
+
+  function pedirDelConsulta(id) {
+    deleteConsultaId = id;
+    Modal.open('modal-del-consulta');
+  }
+
+  async function confirmarDelConsulta() {
+    try {
+      await Api.delete(`/consultas/${deleteConsultaId}`);
+      Toast.success('Consulta removida com sucesso');
+      Modal.close('modal-del-consulta');
+      loadConsultas(document.getElementById('status-filter').value);
+    } catch (err) {
+      Toast.error('Erro ao excluir');
+    }
+    deleteConsultaId = null;
+  }
+
+  function limparFiltros() {
+    document.getElementById('status-filter').value = '';
+    loadConsultas();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('status-filter').addEventListener('change', function() {
+      loadConsultas(this.value);
+    });
+  });
+
+  loadConsultas();
+</script>
+</body>
+</html>

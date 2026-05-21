@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Animais — VetClínica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<script src="/static/js/utils.js"></script>
+<script src="/static/js/layout.js"></script>
+<script>
+  buildLayout('Animais');
+  const content = document.getElementById('page-content');
+
+  content.innerHTML = `
+    <!-- MODAIS -->
+
+    <!-- Modal: Cadastrar/Editar Animal -->
+    <div class="modal-overlay" id="modal-animal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 id="modal-title">🐾 Novo Animal</h2>
+          <button class="modal-close" onclick="Modal.close('modal-animal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-animal" enctype="multipart/form-data">
+            <input type="hidden" id="animal-id">
+
+            <!-- Foto -->
+            <div class="form-group">
+              <label class="form-label">Foto do Animal</label>
+              <div class="foto-upload" id="foto-upload-area" onclick="document.getElementById('foto-input').click()">
+                <div id="foto-preview-container">
+                  <div class="foto-upload-icon">📷</div>
+                  <p><strong>Clique para enviar</strong> ou arraste uma foto</p>
+                  <p>JPG, PNG, WebP · Máx 5MB</p>
+                </div>
+              </div>
+              <input type="file" id="foto-input" accept="image/*" style="display:none">
+            </div>
+
+            <div class="form-grid form-grid-2">
+              <div class="form-group">
+                <label class="form-label" for="nome">Nome <span class="req">*</span></label>
+                <input type="text" id="nome" class="form-control" placeholder="Ex: Rex" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="especie">Espécie <span class="req">*</span></label>
+                <select id="especie" class="form-control form-select" required>
+                  <option value="">Selecione...</option>
+                  <option value="Cachorro">🐶 Cachorro</option>
+                  <option value="Gato">🐱 Gato</option>
+                  <option value="Pássaro">🐦 Pássaro</option>
+                  <option value="Coelho">🐰 Coelho</option>
+                  <option value="Hamster">🐹 Hamster</option>
+                  <option value="Réptil">🦎 Réptil</option>
+                  <option value="Outro">🐾 Outro</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-grid form-grid-3">
+              <div class="form-group">
+                <label class="form-label" for="raca">Raça</label>
+                <input type="text" id="raca" class="form-control" placeholder="Ex: Labrador">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="idade">Idade (anos)</label>
+                <input type="number" id="idade" class="form-control" placeholder="Ex: 3" min="0" max="30">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="peso">Peso (kg)</label>
+                <input type="number" id="peso" class="form-control" placeholder="Ex: 12.5" step="0.1" min="0">
+              </div>
+            </div>
+
+            <div class="form-grid form-grid-2">
+              <div class="form-group">
+                <label class="form-label" for="nome_dono">Nome do Dono <span class="req">*</span></label>
+                <input type="text" id="nome_dono" class="form-control" placeholder="Ex: João Silva" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="contato_dono">Contato do Dono</label>
+                <input type="text" id="contato_dono" class="form-control" placeholder="Ex: (47) 99999-0000">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="observacoes">Observações</label>
+              <textarea id="observacoes" class="form-control" placeholder="Informações relevantes sobre o animal..."></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="Modal.close('modal-animal')">Cancelar</button>
+          <button class="btn btn-primary" onclick="salvarAnimal()">
+            <span>💾</span> Salvar Animal
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Confirmar Exclusão -->
+    <div class="modal-overlay" id="modal-delete">
+      <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+          <h2>⚠️ Confirmar Exclusão</h2>
+          <button class="modal-close" onclick="Modal.close('modal-delete')">✕</button>
+        </div>
+        <div class="modal-body">
+          <p style="color:var(--cinza-700)">
+            Tem certeza que deseja excluir o animal <strong id="delete-nome"></strong>?
+          </p>
+          <p style="color:var(--cinza-500); font-size:.85rem; margin-top:8px">
+            ⚠️ Todas as consultas associadas também serão removidas. Esta ação não pode ser desfeita.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="Modal.close('modal-delete')">Cancelar</button>
+          <button class="btn btn-danger" onclick="confirmarDelete()">
+            <span>🗑️</span> Excluir Animal
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Ver Detalhes -->
+    <div class="modal-overlay" id="modal-detalhes">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-header">
+          <h2>🐾 Detalhes do Animal</h2>
+          <button class="modal-close" onclick="Modal.close('modal-detalhes')">✕</button>
+        </div>
+        <div class="modal-body" id="modal-detalhes-body">
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="Modal.close('modal-detalhes')">Fechar</button>
+          <button class="btn btn-primary" id="btn-editar-detalhes">✏️ Editar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTEÚDO DA PÁGINA -->
+    <div class="page-header">
+      <div>
+        <h1>🐾 Animais</h1>
+        <p>Gerencie os pacientes da clínica</p>
+      </div>
+      <button class="btn btn-primary" onclick="abrirModalNovo()">
+        <span>➕</span> Cadastrar Animal
+      </button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-body" style="padding:16px 24px">
+        <div class="search-bar">
+          <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="search-input" class="form-control" placeholder="Buscar por nome ou dono...">
+          </div>
+          <select id="especie-filter" class="form-control form-select" style="width:180px">
+            <option value="">Todas as espécies</option>
+            <option value="Cachorro">🐶 Cachorro</option>
+            <option value="Gato">🐱 Gato</option>
+            <option value="Pássaro">🐦 Pássaro</option>
+            <option value="Coelho">🐰 Coelho</option>
+            <option value="Outro">🐾 Outro</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="limparFiltros()">✕ Limpar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabela -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Lista de Animais</h2>
+        <span id="total-count" style="color:var(--cinza-500);font-size:.85rem"></span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Animal</th>
+              <th>Espécie / Raça</th>
+              <th>Idade / Peso</th>
+              <th>Dono</th>
+              <th>Contato</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="animais-tbody">
+            <tr><td colspan="6"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // ─── Estado ───
+  let animaisList = [];
+  let deleteId = null;
+
+  // ─── Carregar animais ───
+  async function loadAnimais(search = '', especie = '') {
+    const tbody = document.getElementById('animais-tbody');
+    tbody.innerHTML = `<tr><td colspan="6"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>`;
+
+    try {
+      let url = '/animais?';
+      if (search)  url += `search=${encodeURIComponent(search)}&`;
+      if (especie) url += `especie=${encodeURIComponent(especie)}&`;
+
+      animaisList = await Api.get(url);
+      renderAnimais(animaisList);
+    } catch (err) {
+      Toast.error('Erro ao carregar animais: ' + err.message);
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--cinza-500);padding:40px">Erro ao carregar dados</td></tr>`;
+    }
+  }
+
+  function renderAnimais(list) {
+    const tbody = document.getElementById('animais-tbody');
+    const counter = document.getElementById('total-count');
+    counter.textContent = `${list.length} animal(is)`;
+
+    if (!list.length) {
+      tbody.innerHTML = `
+        <tr><td colspan="6">
+          <div class="empty-state">
+            <div class="empty-icon">🐾</div>
+            <h3>Nenhum animal encontrado</h3>
+            <p>Cadastre o primeiro paciente da clínica</p>
+            <button class="btn btn-primary" onclick="abrirModalNovo()">➕ Cadastrar Animal</button>
+          </div>
+        </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = list.map(a => `
+      <tr>
+        <td>
+          <div class="animal-cell">
+            ${animalAvatar(a.foto_url, a.nome)}
+            <div>
+              <div class="animal-name">${a.nome}</div>
+              <div class="animal-breed">ID #${a.id}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          ${especieBadge(a.especie)}
+          <div style="font-size:.8rem;color:var(--cinza-500);margin-top:4px">${a.raca || '—'}</div>
+        </td>
+        <td>
+          <div>${Format.idade(a.idade)}</div>
+          <div style="font-size:.8rem;color:var(--cinza-500)">${Format.peso(a.peso)}</div>
+        </td>
+        <td><strong>${a.nome_dono}</strong></td>
+        <td>${a.contato_dono || '—'}</td>
+        <td>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm btn-icon" onclick="verDetalhes(${a.id})" title="Ver detalhes">👁</button>
+            <button class="btn btn-ghost btn-sm btn-icon" onclick="editarAnimal(${a.id})" title="Editar">✏️</button>
+            <button class="btn btn-danger btn-sm btn-icon" onclick="pedirDelete(${a.id}, '${a.nome.replace(/'/g,"\\'")}') " title="Excluir">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // ─── Modal: Novo Animal ───
+  function abrirModalNovo() {
+    document.getElementById('modal-title').textContent = '🐾 Novo Animal';
+    document.getElementById('form-animal').reset();
+    document.getElementById('animal-id').value = '';
+    resetFotoPreview();
+    Modal.open('modal-animal');
+  }
+
+  // ─── Modal: Editar ───
+  async function editarAnimal(id) {
+    try {
+      const a = await Api.get(`/animais/${id}`);
+      document.getElementById('modal-title').textContent = `✏️ Editar: ${a.nome}`;
+      document.getElementById('animal-id').value = a.id;
+      document.getElementById('nome').value = a.nome;
+      document.getElementById('especie').value = a.especie;
+      document.getElementById('raca').value = a.raca || '';
+      document.getElementById('idade').value = a.idade || '';
+      document.getElementById('peso').value = a.peso || '';
+      document.getElementById('nome_dono').value = a.nome_dono;
+      document.getElementById('contato_dono').value = a.contato_dono || '';
+      document.getElementById('observacoes').value = a.observacoes || '';
+
+      if (a.foto_url) {
+        const container = document.getElementById('foto-preview-container');
+        container.innerHTML = `
+          <img src="${a.foto_url}" class="foto-preview" alt="${a.nome}">
+          <p style="font-size:.8rem;color:var(--cinza-500)">Clique para alterar a foto</p>`;
+      } else {
+        resetFotoPreview();
+      }
+
+      Modal.close('modal-detalhes');
+      Modal.open('modal-animal');
+    } catch (err) {
+      Toast.error('Erro ao carregar animal');
+    }
+  }
+
+  // ─── Salvar Animal (criar ou editar) ───
+  async function salvarAnimal() {
+    const id = document.getElementById('animal-id').value;
+    const nome = document.getElementById('nome').value.trim();
+    const especie = document.getElementById('especie').value;
+    const nome_dono = document.getElementById('nome_dono').value.trim();
+
+    if (!nome || !especie || !nome_dono) {
+      Toast.warning('Preencha os campos obrigatórios: Nome, Espécie e Dono');
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append('nome', nome);
+    fd.append('especie', especie);
+    fd.append('raca', document.getElementById('raca').value);
+    fd.append('idade', document.getElementById('idade').value || '');
+    fd.append('peso', document.getElementById('peso').value || '');
+    fd.append('nome_dono', nome_dono);
+    fd.append('contato_dono', document.getElementById('contato_dono').value);
+    fd.append('observacoes', document.getElementById('observacoes').value);
+
+    const fotoInput = document.getElementById('foto-input');
+    if (fotoInput.files[0]) fd.append('foto', fotoInput.files[0]);
+
+    try {
+      if (id) {
+        await Api.putForm(`/animais/${id}`, fd);
+        Toast.success(`Animal atualizado com sucesso!`);
+      } else {
+        await Api.postForm('/animais', fd);
+        Toast.success(`Animal cadastrado com sucesso!`);
+      }
+      Modal.close('modal-animal');
+      loadAnimais();
+    } catch (err) {
+      Toast.error('Erro ao salvar: ' + err.message);
+    }
+  }
+
+  // ─── Ver Detalhes ───
+  async function verDetalhes(id) {
+    try {
+      const a = await Api.get(`/animais/${id}`);
+      const body = document.getElementById('modal-detalhes-body');
+      body.innerHTML = `
+        <div style="text-align:center;margin-bottom:20px">
+          ${a.foto_url
+            ? `<img src="${a.foto_url}" style="width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid var(--verde-claro);margin:0 auto">`
+            : `<div style="width:100px;height:100px;border-radius:50%;background:var(--verde-suave);display:flex;align-items:center;justify-content:center;font-size:2.5rem;margin:0 auto">🐾</div>`
+          }
+          <h3 style="margin-top:12px;font-size:1.3rem">${a.nome}</h3>
+          <div>${especieBadge(a.especie)}</div>
+        </div>
+        <div class="consulta-info-grid">
+          <div class="info-field"><label>Raça</label><p>${a.raca || '—'}</p></div>
+          <div class="info-field"><label>Idade</label><p>${Format.idade(a.idade)}</p></div>
+          <div class="info-field"><label>Peso</label><p>${Format.peso(a.peso)}</p></div>
+          <div class="info-field"><label>Dono</label><p>${a.nome_dono}</p></div>
+          <div class="info-field"><label>Contato</label><p>${a.contato_dono || '—'}</p></div>
+          <div class="info-field"><label>Cadastrado em</label><p>${Format.date(a.created_at)}</p></div>
+        </div>
+        ${a.observacoes ? `
+          <hr class="divider">
+          <div class="info-field">
+            <label>Observações</label>
+            <p>${a.observacoes}</p>
+          </div>` : ''}
+      `;
+      document.getElementById('btn-editar-detalhes').onclick = () => editarAnimal(id);
+      Modal.open('modal-detalhes');
+    } catch (err) {
+      Toast.error('Erro ao carregar detalhes');
+    }
+  }
+
+  // ─── Exclusão ───
+  function pedirDelete(id, nome) {
+    deleteId = id;
+    document.getElementById('delete-nome').textContent = nome;
+    Modal.open('modal-delete');
+  }
+
+  async function confirmarDelete() {
+    if (!deleteId) return;
+    try {
+      await Api.delete(`/animais/${deleteId}`);
+      Toast.success('Animal removido com sucesso');
+      Modal.close('modal-delete');
+      loadAnimais();
+    } catch (err) {
+      Toast.error('Erro ao excluir: ' + err.message);
+    }
+    deleteId = null;
+  }
+
+  // ─── Foto preview ───
+  function resetFotoPreview() {
+    const container = document.getElementById('foto-preview-container');
+    container.innerHTML = `
+      <div class="foto-upload-icon">📷</div>
+      <p><strong>Clique para enviar</strong> ou arraste uma foto</p>
+      <p>JPG, PNG, WebP · Máx 5MB</p>`;
+    document.getElementById('foto-input').value = '';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const fotoInput = document.getElementById('foto-input');
+    if (fotoInput) {
+      fotoInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+          const container = document.getElementById('foto-preview-container');
+          container.innerHTML = `
+            <img src="${e.target.result}" class="foto-preview" alt="Preview">
+            <p style="font-size:.8rem;color:var(--cinza-500)">Clique para alterar</p>`;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Busca em tempo real
+    let searchTimer;
+    document.getElementById('search-input').addEventListener('input', function() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        const especie = document.getElementById('especie-filter').value;
+        loadAnimais(this.value, especie);
+      }, 400);
+    });
+
+    document.getElementById('especie-filter').addEventListener('change', function() {
+      const search = document.getElementById('search-input').value;
+      loadAnimais(search, this.value);
+    });
+  });
+
+  function limparFiltros() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('especie-filter').value = '';
+    loadAnimais();
+  }
+
+  // Carrega animais ao inicializar
+  loadAnimais();
+</script>
+</body>
+</html>

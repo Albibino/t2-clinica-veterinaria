@@ -1,0 +1,55 @@
+networks:
+  vet-network:
+    driver: bridge
+    name: vet-network
+
+volumes:
+  vet-db-data:
+    name: vet-db-data
+
+services:
+  mq3-database:
+    image: williamwollert/vet-database:latest
+    container_name: mq3-database
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vetclinica
+      POSTGRES_USER: vetadmin
+      POSTGRES_PASSWORD: vet@2026secure
+    volumes:
+      - vet-db-data:/var/lib/postgresql/data
+    networks:
+      - vet-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vetadmin -d vetclinica"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mq2-backend:
+    image: williamwollert/vet-backend:latest
+    container_name: mq2-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://vetadmin:vet%402026secure@mq3-database:5432/vetclinica
+      SECRET_KEY: super-secret-jwt-key-clinica-vet-2026
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin123
+    depends_on:
+      mq3-database:
+        condition: service_healthy
+    networks:
+      - vet-network
+    ports:
+      - "8000:8000"
+
+  mq1-frontend:
+    image: williamwollert/vet-frontend:latest
+    container_name: mq1-frontend
+    restart: unless-stopped
+    depends_on:
+      - mq2-backend
+    networks:
+      - vet-network
+    ports:
+      - "80:80"

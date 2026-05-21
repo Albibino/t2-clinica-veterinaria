@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nova Consulta — VetClínica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<script src="/static/js/utils.js"></script>
+<script src="/static/js/layout.js"></script>
+<script>
+  buildLayout('Nova Consulta');
+  const content = document.getElementById('page-content');
+
+  content.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h1>➕ Nova Consulta</h1>
+        <p>Agende ou registre uma consulta para um paciente</p>
+      </div>
+      <a href="/consultas.html" class="btn btn-ghost">← Ver Consultas</a>
+    </div>
+
+    <div style="max-width:760px">
+      <div class="card">
+        <div class="card-header">
+          <h2>📋 Dados da Consulta</h2>
+        </div>
+        <div class="card-body">
+          <form id="form-nova-consulta">
+
+            <!-- Seleção do Animal -->
+            <div class="form-group">
+              <label class="form-label" for="animal_id">Paciente (Animal) <span class="req">*</span></label>
+              <select id="animal_id" class="form-control form-select" required>
+                <option value="">Carregando animais...</option>
+              </select>
+            </div>
+
+            <!-- Animal selecionado: preview -->
+            <div id="animal-preview" style="display:none;background:var(--verde-ultra);border-radius:12px;padding:14px 18px;margin-bottom:18px;display:none;align-items:center;gap:14px">
+              <div id="preview-foto"></div>
+              <div>
+                <div id="preview-nome" style="font-weight:700;font-size:1rem"></div>
+                <div id="preview-info" style="font-size:.83rem;color:var(--cinza-500)"></div>
+              </div>
+            </div>
+
+            <div class="form-grid form-grid-2">
+              <div class="form-group">
+                <label class="form-label" for="data_consulta">Data e Hora <span class="req">*</span></label>
+                <input type="datetime-local" id="data_consulta" class="form-control" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="veterinario">Veterinário Responsável <span class="req">*</span></label>
+                <input type="text" id="veterinario" class="form-control" placeholder="Nome do veterinário" required>
+              </div>
+            </div>
+
+            <div class="form-grid form-grid-2">
+              <div class="form-group">
+                <label class="form-label" for="motivo">Motivo da Consulta <span class="req">*</span></label>
+                <input type="text" id="motivo" class="form-control" placeholder="Ex: Consulta de rotina, vacinação..." required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="status">Status</label>
+                <select id="status" class="form-control form-select">
+                  <option value="agendada">📅 Agendada</option>
+                  <option value="realizada">✅ Realizada</option>
+                  <option value="cancelada">❌ Cancelada</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-grid form-grid-2">
+              <div class="form-group">
+                <label class="form-label" for="peso_consulta">Peso na Consulta (kg)</label>
+                <input type="number" id="peso_consulta" class="form-control" placeholder="Ex: 12.5" step="0.1" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="retorno">Data de Retorno</label>
+                <input type="date" id="retorno" class="form-control">
+              </div>
+            </div>
+
+            <hr class="divider">
+            <p style="font-size:.85rem;color:var(--cinza-500);margin-bottom:16px">
+              💡 Os campos abaixo são opcionais para consultas agendadas e podem ser preenchidos após a realização.
+            </p>
+
+            <div class="form-group">
+              <label class="form-label" for="diagnostico">Diagnóstico</label>
+              <textarea id="diagnostico" class="form-control" placeholder="Diagnóstico após a consulta..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="tratamento">Tratamento</label>
+              <textarea id="tratamento" class="form-control" placeholder="Tratamento prescrito..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="medicamentos">Medicamentos</label>
+              <textarea id="medicamentos" class="form-control" placeholder="Lista de medicamentos prescritos..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="observacoes">Observações</label>
+              <textarea id="observacoes" class="form-control" placeholder="Informações adicionais..."></textarea>
+            </div>
+
+          </form>
+        </div>
+        <div class="modal-footer" style="padding:0 24px 24px">
+          <a href="/consultas.html" class="btn btn-secondary">Cancelar</a>
+          <button class="btn btn-primary" onclick="cadastrarConsulta()">
+            <span>💾</span> Cadastrar Consulta
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Pré-data com datetime atual
+  document.addEventListener('DOMContentLoaded', async () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('data_consulta').value = now.toISOString().slice(0, 16);
+
+    // Carrega animais
+    try {
+      const animais = await Api.get('/animais');
+      const sel = document.getElementById('animal_id');
+
+      if (!animais.length) {
+        sel.innerHTML = '<option value="">Nenhum animal cadastrado</option>';
+        return;
+      }
+
+      sel.innerHTML = '<option value="">Selecione o animal...</option>' +
+        animais.map(a => `<option value="${a.id}" data-foto="${a.foto_url||''}" data-especie="${a.especie}" data-raca="${a.raca||''}" data-dono="${a.nome_dono}">${a.nome} (${a.especie}) — Dono: ${a.nome_dono}</option>`).join('');
+
+      // Preview ao selecionar
+      sel.addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        const preview = document.getElementById('animal-preview');
+        if (!this.value) {
+          preview.style.display = 'none';
+          return;
+        }
+        const foto = opt.dataset.foto;
+        const nome = opt.text.split(' (')[0];
+        document.getElementById('preview-foto').innerHTML = animalAvatar(foto, nome);
+        document.getElementById('preview-nome').textContent = nome;
+        document.getElementById('preview-info').textContent =
+          `${opt.dataset.especie}${opt.dataset.raca ? ' • ' + opt.dataset.raca : ''} · Dono: ${opt.dataset.dono}`;
+        preview.style.display = 'flex';
+      });
+
+      // Pré-seleciona se vier de query param
+      const params = new URLSearchParams(window.location.search);
+      const animalParam = params.get('animal');
+      if (animalParam) {
+        sel.value = animalParam;
+        sel.dispatchEvent(new Event('change'));
+      }
+    } catch (err) {
+      Toast.error('Erro ao carregar animais');
+    }
+  });
+
+  async function cadastrarConsulta() {
+    const animal_id = document.getElementById('animal_id').value;
+    const data_consulta = document.getElementById('data_consulta').value;
+    const veterinario = document.getElementById('veterinario').value.trim();
+    const motivo = document.getElementById('motivo').value.trim();
+
+    if (!animal_id || !data_consulta || !veterinario || !motivo) {
+      Toast.warning('Preencha os campos obrigatórios: Animal, Data, Veterinário e Motivo');
+      return;
+    }
+
+    const payload = {
+      animal_id: parseInt(animal_id),
+      data_consulta: data_consulta,
+      veterinario,
+      motivo,
+      status: document.getElementById('status').value,
+      peso_consulta: document.getElementById('peso_consulta').value || null,
+      retorno: document.getElementById('retorno').value || null,
+      diagnostico: document.getElementById('diagnostico').value || null,
+      tratamento: document.getElementById('tratamento').value || null,
+      medicamentos: document.getElementById('medicamentos').value || null,
+      observacoes: document.getElementById('observacoes').value || null,
+    };
+
+    try {
+      await Api.post('/consultas', payload);
+      Toast.success('Consulta cadastrada com sucesso!');
+      setTimeout(() => window.location.href = '/consultas.html', 1200);
+    } catch (err) {
+      Toast.error('Erro ao cadastrar consulta: ' + err.message);
+    }
+  }
+</script>
+</body>
+</html>
